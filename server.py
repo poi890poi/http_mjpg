@@ -16,28 +16,40 @@ class MainHandler(tornado.web.RequestHandler):
         self.set_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
         
     async def get(self):
-        boundary = '--{}'.format(str(uuid.uuid4()))
+        boundary = '{}'.format(str(uuid.uuid4()))
         self.set_header('Content-Type', 'multipart/x-mixed-replace;boundary={}'.format(boundary))
-        boundary = boundary.encode()
+        boundary = ('--{}'.format(boundary)).encode()
         content_id = 0
         while True:
             try:
+                img = (np.random.rand(640,480,3) * 255).astype('uint8')
+                retval, buf	= cv2.imencode('.jpg', img)
+                buf = buf.tobytes()
+                now = time.time()
+                #buf = ('Time: {}'.format(now)).encode() # For debug
+                timestamp = str(now).encode()
                 self.write(boundary)
                 self.write(b'\n')
-                self.write(b'Content-Type: text/plain\n')
+                self.write(b'Content-Type: image/jpeg\n')
                 self.write(b'Content-Id: ')
                 self.write(str(content_id).encode())
+                self.write(b'\n')
+                self.write(b'Content-Length: ')
+                self.write(str(len(buf)).encode())
+                self.write(b'\n')
+                self.write(b'Content-Timestamp: ')
+                self.write(timestamp)
                 self.write(b'\n\n')
-                now = time.time()
-                self.write(('Time: {}\n'.format(now)).encode())
+                self.write(buf)
+                self.write(b'\n')
                 await self.flush()
-                print(now)
-                if content_id > 8: break
+                #if content_id > 1024: break
                 content_id += 1
             except iostream.StreamClosedError:
                 break
             finally:
-                await gen.sleep(0.000000001) # 1 nanosecond
+                await gen.sleep(0.005) # 5 ms
+                #await gen.sleep(0.25) # 250 ms
         print('FINALIZE')
         self.finish()
         
