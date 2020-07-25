@@ -3,6 +3,7 @@ import time
 import asyncio
 
 import cv2
+from turbojpeg import TurboJPEG
 import numpy as np
 import tornado.ioloop
 import tornado.web
@@ -22,9 +23,11 @@ class MainHandler(tornado.web.RequestHandler):
         content_id = 0
         while True:
             try:
-                img = (np.random.rand(480,640,3) * 255).astype('uint8')
-                retval, buf	= cv2.imencode('.jpg', img)
-                buf = buf.tobytes()
+                img = (np.random.rand(480*4,640*4,3) * 255).astype('uint8')
+                #retval, buf	= cv2.imencode('.jpg', img)
+                #buf = buf.tobytes()
+                jpeg = TurboJPEG()
+                buf = jpeg.encode(img)
                 now = time.time()
                 #buf = ('Time: {}'.format(now)).encode() # For debug
                 timestamp = str(now).encode()
