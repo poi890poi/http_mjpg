@@ -1,0 +1,54 @@
+<html>
+<head>
+    <title>Native HTTP/HTML Video Streaming</title>
+    <script src="./js/jquery-3.5.1.min.js"></script>
+</head>
+<body>
+    <div id="div-canvas">
+        <img src=""></img>
+    </div>
+<script>
+    $( document ).ready(function() {
+        console.log( "ready!" );
+        var xhr = new XMLHttpRequest();
+        xhr.responseType = "arraybuffer";
+        Object.defineProperty(xhr, 'responseText', {});
+        xhr.open("GET", "http://localhost:8888", true);
+        xhr.userdata = {
+            "ResponseLimit": 0
+        };
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
+                let contentType = xhr.getResponseHeader("Content-Type");
+                let components  = contentType.split("=");
+                if (components[0] === "multipart/x-mixed-replace;boundary") {
+                    var boundary = components[1];
+                    console.log(["Boundary of Multipart HTTP", boundary]);
+                }
+                }
+            else if (xhr.readyState === XMLHttpRequest.LOADING) {
+                //console.log(xhr.response);
+                if (xhr.response !== null) {
+                    let lines = xhr.response.split(/\r?\n/);
+                    //console.log(lines[lines.length - 2]);
+                    $("#div-canvas").html(lines[lines.length - 2]);
+                }
+                if (xhr.userdata.ResponseLimit >= 32) {
+                    console.log("ABORT");
+                    xhr.abort();
+                }
+                xhr.userdata.ResponseLimit += 1;
+            }
+            else if (xhr.readyState === XMLHttpRequest.DONE) {
+                var status = xhr.status;
+                console.log(["DONE", status]);
+                if (status === 0 || (status >= 200 && status < 400)) {
+                } else {
+                }
+            }
+        };
+        xhr.send();
+    });
+</script>
+</body>
+</html>
