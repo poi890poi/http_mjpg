@@ -22,7 +22,7 @@ class MainHandler(tornado.web.RequestHandler):
         content_id = 0
         while True:
             try:
-                img = (np.random.rand(640,480,3) * 255).astype('uint8')
+                img = (np.random.rand(480,640,3) * 255).astype('uint8')
                 retval, buf	= cv2.imencode('.jpg', img)
                 buf = buf.tobytes()
                 now = time.time()

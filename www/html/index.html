@@ -5,7 +5,7 @@
 </head>
 <body>
     <div id="div-canvas">
-        <img src=""></img>
+        <canvas id="canvas" width="640" height="480"></canvas>
     </div>
     <div id="div-info">
     </div>
@@ -18,7 +18,8 @@
             if (typeof consume.boundary === "undefined") {
                 console.log(["consume", boundary]);
                 consume.boundary = "--" + boundary;
-                consume.bytesToRead = 0;
+                consume.reaminingBytes = 0;
+                consume.bodyPart = new Uint8Array();
                 consume.line = "";
                 consume.parserStatus = 0;
             }
@@ -31,20 +32,23 @@
                 // since the chunk can be multiple bytes, iterate through
                 // each byte while skipping the byte order mark
                 // (assuming UTF-8 with single-byte chars)
-                console.log(["CHUNK", chunk.byteLength]);
+                //console.log(["CHUNK", chunk.byteLength]);
                 /*for (var i = 0; i < chunk.byteLength; i++) {
                     line += String.fromCharCode(chunk[i]);
                 }
                 console.log(line);
                 line = '';*/
                 for (var i = 0; i < chunk.byteLength; i++) {
-                    if (consume.parserStatus == 2 && consume.bytesToRead > 0) {
-                        consume.bodyPart = chunk.slice(i, i + consume.bytesToRead);
-                        /*let bodyText = "";
-                        for (var j = 0; j < body.byteLength; j++) {
-                            bodyText += String.fromCharCode(body[j]);
-                        }*/
-                        console.log(["PART", consume.bytesToRead, consume.bodyPart.byteLength]);
+                    if (consume.parserStatus == 2 && consume.remainingBytes > 0) {
+                        var incomingData = chunk.slice(i, i + consume.remainingBytes);
+                        //console.log(["bytes read", incomingData.byteLength]);
+                        consume.remainingBytes -= incomingData.byteLength;
+                        i += incomingData.byteLength;
+
+                        var joined = new Uint8Array(consume.bodyPart.length + incomingData.byteLength);
+                        joined.set(consume.bodyPart);
+                        joined.set(incomingData, consume.bodyPart.byteLength);
+                        consume.bodyPart = joined;
 
                         /*let part = "";
                         for (var j = 0; j < consume.bodyPart.byteLength; j++) {
@@ -52,19 +56,29 @@
                         }
                         console.log(["PART STR", part]);*/
 
-                        i += consume.bodyPart.byteLength;
-                        if (consume.bytesToRead > consume.bodyPart.byteLength) {
-                            // Body part incomplete; continue to read next chunk.
-                            consume.bytesToRead -= consume.bodyPart.byteLength;
-                            console.log(["REMAIN", consume.bytesToRead]);
-                        } else {
+                        if (consume.remainingBytes === 0) {
+                            //console.log(["BODY PART", consume.contentLength, consume.bodyPart.byteLength]);
+                            var blob = new Blob([consume.bodyPart], {'type': 'image/jpeg'});
+                            var url = URL.createObjectURL(blob);
+                            var canvas = document.getElementById("canvas");
+                            var ctx = canvas.getContext("2d");
+                            var img = new Image;
+                            img.onload = function() {
+                                ctx.drawImage(img, 0, 0);
+                            }
+                            img.src = url;
+
+                            consume.bodyPart = new Uint8Array();
                             consume.bytesToRead = 0;
                             consume.parserStatus = 0;
+                        } else {
+                            // Body part incomplete; continue to read next chunk.
+                            //console.log(["REMAIN", consume.remainingBytes]);
                         }
                     } else if (chunk[i] === 10 || chunk[i] === 13) {
                         //console.log(["comapre boundary", line, consume.boundary]);
                         if (consume.line === consume.boundary) {
-                            console.log("BOUNDARY");
+                            //console.log("BOUNDARY");
                             consume.parserStatus = 1;
                         } else {
                             if (consume.parserStatus == 1) {
@@ -72,18 +86,19 @@
                                 //console.log("headers");
                                 if (consume.line === "") {
                                     consume.parserStatus = 2;
-                                    console.log(["START OF BODY", i]);
+                                    //console.log(["START OF BODY", i]);
                                 } else {
                                     let headerComponents = consume.line.split(":");
                                     if (headerComponents[0] === "Content-Id") {
                                         let contentId = parseInt(headerComponents[1]);
                                         //console.log(contentId);
                                     } else if (headerComponents[0] === "Content-Type") {
-                                        console.log(headerComponents);
+                                        //console.log(headerComponents);
                                     } else if (headerComponents[0] === "Content-Length") {
-                                        consume.bytesToRead = parseInt(headerComponents[1]);
-                                        console.log([headerComponents[0], consume.bytesToRead]);
-                                    } else if (headerComponents[0] === "Timestamp") {
+                                        consume.contentLength = parseInt(headerComponents[1]);
+                                        consume.remainingBytes = consume.contentLength;
+                                        //console.log([headerComponents[0], consume.contentLength]);
+                                    } else if (headerComponents[0] === "Content-Timestamp") {
                                         let timestamp = parseFloat(headerComponents[1]);
                                         if (typeof consume.previousFrame !== "undefined") {
                                             $("#div-info").html(
