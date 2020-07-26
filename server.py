@@ -21,36 +21,41 @@ class MainHandler(tornado.web.RequestHandler):
         self.set_header('Content-Type', 'multipart/x-mixed-replace;boundary={}'.format(boundary))
         boundary = ('--{}'.format(boundary)).encode()
         content_id = 0
+        jpeg = TurboJPEG()
+        cap = cv2.VideoCapture('akira_bike.mp4')
+        #img = (np.random.rand(480*4,640*4,3) * 255).astype('uint8')
         while True:
-            try:
-                now = time.time()
-                img = (np.random.rand(480*3,640*3,3) * 255).astype('uint8')
-                #retval, buf	= cv2.imencode('.jpg', img)
-                #buf = buf.tobytes()
-                jpeg = TurboJPEG()
-                buf = jpeg.encode(img)
-                #buf = ('Time: {}'.format(now)).encode() # For debug
-                timestamp = str(now).encode()
-                self.write(boundary)
-                self.write(b'\n')
-                self.write(b'Content-Type: image/jpeg\n')
-                self.write(b'Content-Id: ')
-                self.write(str(content_id).encode())
-                self.write(b'\n')
-                self.write(b'Content-Length: ')
-                self.write(str(len(buf)).encode())
-                self.write(b'\n')
-                self.write(b'Content-Timestamp: ')
-                self.write(timestamp)
-                self.write(b'\n\n') # RFC1341 Boundary or headers are followed by double CRLF to mark the start of content.
-                self.write(buf)
-                self.write(b'\n')
-                await self.flush()
-                content_id += 1
-            except iostream.StreamClosedError:
-                break
-            finally:
-                await gen.sleep(0.001) # 1 ms
+            while(cap.isOpened()):
+                ret, img = cap.read()
+                if ret == 0:
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    ret, img = cap.read()
+                try:
+                    now = time.time()
+                    #np.random.shuffle(img)
+                    buf = jpeg.encode(img)
+                    #buf = ('Time: {}'.format(now)).encode() # For debug
+                    timestamp = str(now).encode()
+                    self.write(boundary)
+                    self.write(b'\n')
+                    self.write(b'Content-Type: image/jpeg\n')
+                    self.write(b'Content-Id: ')
+                    self.write(str(content_id).encode())
+                    self.write(b'\n')
+                    self.write(b'Content-Length: ')
+                    self.write(str(len(buf)).encode())
+                    self.write(b'\n')
+                    self.write(b'Content-Timestamp: ')
+                    self.write(timestamp)
+                    self.write(b'\n\n') # RFC1341 Boundary or headers are followed by double CRLF to mark the start of content.
+                    self.write(buf)
+                    self.write(b'\n')
+                    await self.flush()
+                    content_id += 1
+                except iostream.StreamClosedError:
+                    break
+                finally:
+                    await gen.sleep(0.001) # 1 ms
         print('FINALIZE')
         self.finish()
         

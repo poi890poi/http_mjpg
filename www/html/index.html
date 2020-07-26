@@ -5,7 +5,7 @@
 </head>
 <body>
     <div id="div-canvas">
-        <canvas id="canvas" width="640" height="480"></canvas>
+        <canvas id="canvas" width="960" height="540"></canvas>
     </div>
     <div id="div-info">
     </div>
@@ -31,8 +31,10 @@
                 consume.img = new Image;
                 let canvas = document.getElementById("canvas");
                 let ctx = canvas.getContext("2d");
+                consume.canvasWidth = $(canvas).width();
+                consume.canvasHeight = $(canvas).height();
                 consume.img.onload = function() {
-                    ctx.drawImage(consume.img, 0, 0);
+                    ctx.drawImage(consume.img, 0, 0, consume.canvasWidth, consume.canvasHeight);
                 }
             }
             return responseReader.read().then(function (result) {
