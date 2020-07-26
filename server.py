@@ -24,7 +24,7 @@ class MainHandler(tornado.web.RequestHandler):
         while True:
             try:
                 now = time.time()
-                img = (np.random.rand(480,640,3) * 255).astype('uint8')
+                img = (np.random.rand(480*3,640*3,3) * 255).astype('uint8')
                 #retval, buf	= cv2.imencode('.jpg', img)
                 #buf = buf.tobytes()
                 jpeg = TurboJPEG()
@@ -42,17 +42,15 @@ class MainHandler(tornado.web.RequestHandler):
                 self.write(b'\n')
                 self.write(b'Content-Timestamp: ')
                 self.write(timestamp)
-                self.write(b'\n\n')
+                self.write(b'\n\n') # RFC1341 Boundary or headers are followed by double CRLF to mark the start of content.
                 self.write(buf)
                 self.write(b'\n')
                 await self.flush()
-                #if content_id > 1024: break
                 content_id += 1
             except iostream.StreamClosedError:
                 break
             finally:
                 await gen.sleep(0.001) # 1 ms
-                #await gen.sleep(0.25) # 250 ms
         print('FINALIZE')
         self.finish()
         

@@ -16,6 +16,7 @@
         var url = "http://localhost:8888";
         const consume = async function (responseReader, boundary) {
             if (typeof consume.boundary === "undefined") {
+                // This part is executed only once;
                 // consume object is persistent during streaming.
                 console.log(["CONSUME INIT", boundary]);
                 consume.boundary = "--" + boundary;
@@ -23,9 +24,16 @@
                 consume.bodyPart = new Uint8Array();
                 consume.line = "";
                 consume.parserStatus = 0;
-                consume.img = new Image;
                 consume.fps = "NA";
                 consume.fpsCount = 0;
+
+                // Prepare canvas for image rendering.
+                consume.img = new Image;
+                let canvas = document.getElementById("canvas");
+                let ctx = canvas.getContext("2d");
+                consume.img.onload = function() {
+                    ctx.drawImage(consume.img, 0, 0);
+                }
             }
             return responseReader.read().then(function (result) {
                 if (result.done) { return; }
@@ -34,6 +42,7 @@
 
                 for (var i = 0; i < chunk.byteLength; i++) {
                     if (consume.parserStatus == 2 && consume.remainingBytes > 0) {
+                        // Read content of body part.
                         var incomingData = chunk.slice(i, i + consume.remainingBytes);
                         //console.log(["bytes read", incomingData.byteLength]);
                         consume.remainingBytes -= incomingData.byteLength;
@@ -57,11 +66,6 @@
                             //console.log(["BODY PART", consume.contentLength, consume.bodyPart.byteLength]);
                             consume.blob = new Blob([consume.bodyPart], {'type': 'image/jpeg'});
                             consume.url = URL.createObjectURL(consume.blob);
-                            var canvas = document.getElementById("canvas");
-                            var ctx = canvas.getContext("2d");
-                            consume.img.onload = function() {
-                                ctx.drawImage(consume.img, 0, 0);
-                            }
                             consume.img.src = url;
 
                             let now = Date.now() / 1000;
@@ -138,44 +142,6 @@
             return consume(response.body.getReader(), boundary);
         })
         .catch(console.log.bind(console));
-
-        var xhr = new XMLHttpRequest();
-        xhr.responseType = "arraybuffer";
-        Object.defineProperty(xhr, 'responseText', {});
-        xhr.open("GET", url, true);
-        xhr.userdata = {
-            "ResponseLimit": 0
-        };
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
-                let contentType = xhr.getResponseHeader("Content-Type");
-                let components  = contentType.split("=");
-                if (components[0] === "multipart/x-mixed-replace;boundary") {
-                    var boundary = components[1];
-                    console.log(["Boundary of Multipart HTTP", boundary]);
-                }
-            } else if (xhr.readyState === XMLHttpRequest.LOADING) {
-                //console.log(xhr.response);
-                if (xhr.response !== null) {
-                    let lines = xhr.response.split(/\r?\n/);
-                    //console.log(lines[lines.length - 2]);
-                    $("#div-canvas").html(lines[lines.length - 2]);
-                }
-                if (xhr.userdata.ResponseLimit >= 32) {
-                    console.log("ABORT");
-                    xhr.abort();
-                }
-                xhr.userdata.ResponseLimit += 1;
-            }
-            else if (xhr.readyState === XMLHttpRequest.DONE) {
-                var status = xhr.status;
-                console.log(["DONE", status]);
-                if (status === 0 || (status >= 200 && status < 400)) {
-                } else {
-                }
-            }
-        };
-        //xhr.send();
     });
 </script>
 </body>
