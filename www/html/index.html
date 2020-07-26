@@ -16,28 +16,22 @@
         var url = "http://localhost:8888";
         const consume = async function (responseReader, boundary) {
             if (typeof consume.boundary === "undefined") {
-                console.log(["consume", boundary]);
+                // consume object is persistent during streaming.
+                console.log(["CONSUME INIT", boundary]);
                 consume.boundary = "--" + boundary;
                 consume.reaminingBytes = 0;
                 consume.bodyPart = new Uint8Array();
                 consume.line = "";
                 consume.parserStatus = 0;
+                consume.img = new Image;
+                consume.fps = "NA";
+                consume.fpsCount = 0;
             }
             return responseReader.read().then(function (result) {
                 if (result.done) { return; }
 
-                // do something with the current chunk
                 const chunk = result.value;
 
-                // since the chunk can be multiple bytes, iterate through
-                // each byte while skipping the byte order mark
-                // (assuming UTF-8 with single-byte chars)
-                //console.log(["CHUNK", chunk.byteLength]);
-                /*for (var i = 0; i < chunk.byteLength; i++) {
-                    line += String.fromCharCode(chunk[i]);
-                }
-                console.log(line);
-                line = '';*/
                 for (var i = 0; i < chunk.byteLength; i++) {
                     if (consume.parserStatus == 2 && consume.remainingBytes > 0) {
                         var incomingData = chunk.slice(i, i + consume.remainingBytes);
@@ -50,23 +44,39 @@
                         joined.set(incomingData, consume.bodyPart.byteLength);
                         consume.bodyPart = joined;
 
-                        /*let part = "";
+                        /*
+                        // Print binary data as text for debug.
+                        let part = "";
                         for (var j = 0; j < consume.bodyPart.byteLength; j++) {
                             part += String.fromCharCode(consume.bodyPart[j]);
                         }
                         console.log(["PART STR", part]);*/
 
                         if (consume.remainingBytes === 0) {
+                            // Body part received completely; render in canvas.
                             //console.log(["BODY PART", consume.contentLength, consume.bodyPart.byteLength]);
-                            var blob = new Blob([consume.bodyPart], {'type': 'image/jpeg'});
-                            var url = URL.createObjectURL(blob);
+                            consume.blob = new Blob([consume.bodyPart], {'type': 'image/jpeg'});
+                            consume.url = URL.createObjectURL(consume.blob);
                             var canvas = document.getElementById("canvas");
                             var ctx = canvas.getContext("2d");
-                            var img = new Image;
-                            img.onload = function() {
-                                ctx.drawImage(img, 0, 0);
+                            consume.img.onload = function() {
+                                ctx.drawImage(consume.img, 0, 0);
                             }
-                            img.src = url;
+                            consume.img.src = url;
+
+                            let now = Date.now() / 1000;
+                            htmlInfo = "Timestamp: " + consume.timestamp + "<br/>" + 
+                                "Latency: " + (now - consume.timestamp);
+                            consume.fpsCount += 1;
+                            if (typeof consume.fpsCheckpoint === "undefined") {
+                                consume.fpsCheckpoint = now;
+                            } else if (now - consume.fpsCheckpoint > 3) {
+                                consume.fps = (consume.fpsCount / (now - consume.fpsCheckpoint));
+                                consume.fpsCount = 0;
+                                consume.fpsCheckpoint = now;
+                            }
+                            htmlInfo += "<br/>FPS: " + consume.fps;
+                            $("#div-info").html(htmlInfo);
 
                             consume.bodyPart = new Uint8Array();
                             consume.bytesToRead = 0;
@@ -76,16 +86,17 @@
                             //console.log(["REMAIN", consume.remainingBytes]);
                         }
                     } else if (chunk[i] === 10 || chunk[i] === 13) {
-                        //console.log(["comapre boundary", line, consume.boundary]);
                         if (consume.line === consume.boundary) {
                             //console.log("BOUNDARY");
-                            consume.parserStatus = 1;
+                            consume.parserStatus = 1; // Start parsing headers. This is incorrect implementation because 
+                                                      // the boundary could be followed by content without headers.
                         } else {
                             if (consume.parserStatus == 1) {
-                                // Reading headers
-                                //console.log("headers");
+                                // Parsing headers.
                                 if (consume.line === "") {
-                                    consume.parserStatus = 2;
+                                    // This is not working when the boundary is followed by content instead of headers.
+                                    // TODO Check double CRLF after the boundary, according to RFC1341 The Multipart Content-Type.
+                                    consume.parserStatus = 2; // Start parsing content of body part.
                                     //console.log(["START OF BODY", i]);
                                 } else {
                                     let headerComponents = consume.line.split(":");
@@ -99,13 +110,7 @@
                                         consume.remainingBytes = consume.contentLength;
                                         //console.log([headerComponents[0], consume.contentLength]);
                                     } else if (headerComponents[0] === "Content-Timestamp") {
-                                        let timestamp = parseFloat(headerComponents[1]);
-                                        if (typeof consume.previousFrame !== "undefined") {
-                                            $("#div-info").html(
-                                                "Timestamp: " + timestamp + "<br/>" + 
-                                                "Latency: " + (timestamp - consume.previousFrame));
-                                        }
-                                        consume.previousFrame = timestamp;
+                                        consume.timestamp = parseFloat(headerComponents[1]);
                                     }
                                 }
                             } else {

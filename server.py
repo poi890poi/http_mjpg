@@ -23,12 +23,12 @@ class MainHandler(tornado.web.RequestHandler):
         content_id = 0
         while True:
             try:
-                img = (np.random.rand(480*4,640*4,3) * 255).astype('uint8')
+                now = time.time()
+                img = (np.random.rand(480,640,3) * 255).astype('uint8')
                 #retval, buf	= cv2.imencode('.jpg', img)
                 #buf = buf.tobytes()
                 jpeg = TurboJPEG()
                 buf = jpeg.encode(img)
-                now = time.time()
                 #buf = ('Time: {}'.format(now)).encode() # For debug
                 timestamp = str(now).encode()
                 self.write(boundary)
@@ -51,7 +51,7 @@ class MainHandler(tornado.web.RequestHandler):
             except iostream.StreamClosedError:
                 break
             finally:
-                await gen.sleep(0.005) # 5 ms
+                await gen.sleep(0.001) # 1 ms
                 #await gen.sleep(0.25) # 250 ms
         print('FINALIZE')
         self.finish()
