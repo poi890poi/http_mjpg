@@ -11,6 +11,12 @@
 ## Technologies
 
 - HTTP Multipart Content-Type
+- HTML 4
+
+## Custom Behaviors
+
+To implement custom behaviors for fetching and rendering, the following technologies are required:
+
 - Fetch API
 - Canvas API
 - Object URL
